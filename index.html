@@ -688,12 +688,93 @@ input[type="week"] {
 .b-blue   { background: var(--blue-bg);   color: var(--blue);   }
 .b-purple { background: var(--purple-bg); color: var(--purple); }
 
+/* ── Update Banner ──────────────────────────────── */
+.update-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  padding-top: var(--sat);
+  background: rgba(0,122,255,0.96);
+  color: #fff;
+  display: none;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  animation: slidedown 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+@media (prefers-color-scheme: dark) {
+  .update-banner { background: rgba(10,132,255,0.96); }
+}
+@keyframes slidedown {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+.update-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+}
+.update-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.update-banner-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+}
+.update-banner-text span {
+  font-size: 11.5px;
+  opacity: 0.92;
+  margin-top: 1px;
+}
+.update-btn {
+  padding: 7px 14px;
+  background: #fff;
+  color: var(--blue);
+  border: none;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-family: var(--font);
+  transition: transform 0.12s;
+}
+.update-btn:active { transform: scale(0.94); }
+.update-dismiss {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  font-family: var(--font);
+}
+
 /* ── Empty state ────────────────────────────────── */
 .empty { text-align: center; padding: 2rem 1rem; font-size: 14px; color: var(--t3); }
 </style>
 </head>
 <body>
 <h1 class="sr-only">Morgenroutine Tracker</h1>
+
+<div class="update-banner" id="update-banner" role="status">
+  <div class="update-banner-inner">
+    <div class="update-banner-text">
+      <strong>Neue Version verfügbar</strong>
+      <span>Tippe auf Aktualisieren, um die neueste Version zu laden.</span>
+    </div>
+    <button class="update-btn" onclick="applyUpdate()">Aktualisieren</button>
+    <button class="update-dismiss" onclick="dismissUpdate()" aria-label="Später">×</button>
+  </div>
+</div>
 
 <div class="wrap">
 
@@ -1308,9 +1389,57 @@ renderMoodRow();
 renderWrefList();
 setupStickyShadow();
 
+let waitingWorker=null;
+function showUpdateBanner(){
+  const el=document.getElementById('update-banner');
+  if(el) el.style.display='block';
+}
+function dismissUpdate(){
+  const el=document.getElementById('update-banner');
+  if(el) el.style.display='none';
+}
+function applyUpdate(){
+  if(waitingWorker){
+    waitingWorker.postMessage({type:'SKIP_WAITING'});
+  }else{
+    window.location.reload();
+  }
+}
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      // wenn beim Laden bereits eine neue SW wartet
+      if(reg.waiting && navigator.serviceWorker.controller){
+        waitingWorker=reg.waiting;
+        showUpdateBanner();
+      }
+      // wenn während der Session ein Update gefunden wird
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed' && navigator.serviceWorker.controller){
+            waitingWorker=nw;
+            showUpdateBanner();
+          }
+        });
+      });
+      // bei Rückkehr in die App auf neue Version prüfen
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible'){
+          reg.update().catch(()=>{});
+        }
+      });
+    }).catch(()=>{});
+  });
+
+  // nach SKIP_WAITING wird der neue SW aktiv → Seite neu laden
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(reloading) return;
+    reloading=true;
+    window.location.reload();
   });
 }
 </script>
