@@ -135,6 +135,22 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   color: var(--t1);
   margin-bottom: 1.25rem;
 }
+.pg-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.pg-title-row .pg-title { margin-bottom: 0; }
+.app-version {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
 
 /* ── Sticky Header (Heute) ──────────────────────── */
 .sticky-hd {
@@ -876,7 +892,10 @@ input[type="week"] {
 
 <!-- ═══════════════ STATS ═══════════════ -->
 <div class="pg" id="pg-stats">
-  <div class="pg-title">Statistiken</div>
+  <div class="pg-title-row">
+    <div class="pg-title">Statistiken</div>
+    <div class="app-version" id="app-version"></div>
+  </div>
   <div class="stats-hero">
     <div class="stat-card">
       <div class="stat-n" id="st-total">0</div>
@@ -947,6 +966,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
+const APP_VERSION='v6';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1388,6 +1408,7 @@ renderCal();
 renderMoodRow();
 renderWrefList();
 setupStickyShadow();
+document.getElementById('app-version').textContent=APP_VERSION;
 
 let waitingWorker=null;
 function showUpdateBanner(){
