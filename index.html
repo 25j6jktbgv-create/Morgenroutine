@@ -87,7 +87,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   padding-top:    calc(var(--sat) + 1rem);
   padding-left:   calc(var(--sal) + 1rem);
   padding-right:  calc(var(--sar) + 1rem);
-  padding-bottom: calc(var(--tab-h) + var(--sab) + 14px + 1.5rem);
+  padding-bottom: calc(var(--tab-h) + var(--sab) + 6px + 1.5rem);
   max-width: 560px;
   margin: 0 auto;
 }
@@ -95,7 +95,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* ── Tab Bar ────────────────────────────────────── */
 .tabbar {
   position: fixed;
-  bottom: calc(var(--sab) + 14px);
+  bottom: calc(var(--sab) + 6px);
   left: 50%;
   transform: translateX(-50%);
   width: calc(100vw - 24px);
@@ -122,6 +122,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   }
 }
 .nb {
+  position: relative;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 3px;
@@ -131,24 +132,47 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   font-size: 12px; font-weight: 600;
   letter-spacing: -0.1px;
   font-family: var(--font);
-  transition: color 0.15s;
+  transition: color 0.25s;
   -webkit-tap-highlight-color: transparent;
+}
+.nb::before {
+  content: '';
+  position: absolute;
+  inset: 4px 8px;
+  border-radius: 14px;
+  background: var(--blue-bg);
+  opacity: 0;
+  transform: scale(0.86);
+  transition:
+    opacity 0.32s cubic-bezier(0.34,1.56,0.64,1),
+    transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+  z-index: -1;
+}
+.nb.active::before {
+  opacity: 1;
+  transform: scale(1);
 }
 .nb svg {
   width: 19px; height: 19px;
-  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
 }
 .nb.active { color: var(--blue); }
 .nb.active svg { transform: scale(1.08); }
+.nb:active svg { transform: scale(0.92); }
 
 /* ── Pages ──────────────────────────────────────── */
 .pg { display: none; }
-.pg.active { display: block; animation: pagein 0.22s ease; }
+.pg.active { display: block; animation: pagein 0.28s cubic-bezier(0.2,0.8,0.2,1); }
 @keyframes pagein {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-#pg-heute { position: relative; overflow-x: hidden; }
+#pg-heute { position: relative; }
+.heute-track-wrap {
+  position: relative;
+  overflow-x: hidden;
+}
 .heute-track {
   display: flex;
   touch-action: pan-y;
@@ -841,9 +865,6 @@ input[type="week"] {
 
 <!-- ═══════════════ HEUTE ═══════════════ -->
 <div class="pg active" id="pg-heute">
-<div class="heute-track" id="heute-track">
-<div class="heute-pane heute-side" id="heute-prev"></div>
-<div class="heute-pane heute-stage" id="heute-stage">
 
   <div class="day-nav">
     <button onclick="shiftDay(-1)" aria-label="Vorheriger Tag">
@@ -869,20 +890,26 @@ input[type="week"] {
 
   <div id="streak-wrap" style="min-height:1px"></div>
 
-  <div id="checklist-wrap"></div>
+  <div class="heute-track-wrap">
+    <div class="heute-track" id="heute-track">
+      <div class="heute-pane heute-side" id="heute-prev"></div>
+      <div class="heute-pane heute-stage" id="heute-stage">
 
-  <div class="hour-block" id="hour-block" onclick="toggleHour()">
-    <div class="hour-chk" id="hour-chk" role="checkbox" tabindex="0" aria-label="Routine in unter einer Stunde">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-    </div>
-    <div class="hour-info">
-      <div class="hour-title"><i class="ti ti-clock"></i>Routine in unter 1 Stunde?</div>
-      <div class="hour-sub" id="hour-sub">Abhaken wenn du von 07:30 bis spätestens 08:30 durch warst.</div>
-    </div>
-  </div>
-</div><!-- /.heute-stage -->
-<div class="heute-pane heute-side" id="heute-next"></div>
-</div><!-- /.heute-track -->
+        <div id="checklist-wrap"></div>
+
+        <div class="hour-block" id="hour-block" onclick="toggleHour()">
+          <div class="hour-chk" id="hour-chk" role="checkbox" tabindex="0" aria-label="Routine in unter einer Stunde">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="hour-info">
+            <div class="hour-title"><i class="ti ti-clock"></i>Routine in unter 1 Stunde?</div>
+            <div class="hour-sub" id="hour-sub">Abhaken wenn du von 07:30 bis spätestens 08:30 durch warst.</div>
+          </div>
+        </div>
+      </div><!-- /.heute-stage -->
+      <div class="heute-pane heute-side" id="heute-next"></div>
+    </div><!-- /.heute-track -->
+  </div><!-- /.heute-track-wrap -->
 </div>
 
 <!-- ═══════════════ VERLAUF ═══════════════ -->
@@ -1067,7 +1094,8 @@ function syncS6(dd){
 }
 function updateS6Row(){
   const dd=dayData(dk(viewDate));
-  const row=document.querySelector('[data-id="s6"]');
+  const stage=document.getElementById('heute-stage');
+  const row=stage?stage.querySelector('[data-id="s6"]'):null;
   if(!row) return;
   const chk=row.querySelector('.chk');
   const title=row.querySelector('.row-title');
@@ -1215,7 +1243,7 @@ function toggleStep(id){
   }
   dd.checked[id]=!dd.checked[id];
   sv('mr3',data);
-  const row=document.querySelector(`[data-id="${id}"]`);
+  const row=document.getElementById('heute-stage').querySelector(`[data-id="${id}"]`);
   if(row){
     const chk=row.querySelector('.chk');
     const title=row.querySelector('.row-title');
@@ -1245,11 +1273,14 @@ function toggleGoal(i){
   if(!dd.goals)dd.goals=[{t:'',done:false},{t:'',done:false},{t:'',done:false}];
   dd.goals[i].done=!dd.goals[i].done;
   sv('mr3',data);
-  // direct DOM update to avoid losing input focus
-  const cbs=document.querySelectorAll('.goal-cb');
-  if(cbs[i]){
-    if(dd.goals[i].done) cbs[i].classList.add('on');
-    else cbs[i].classList.remove('on');
+  // direct DOM update auf der aktiven Stage (Edge-Panes ignorieren)
+  const stage=document.getElementById('heute-stage');
+  if(stage){
+    const cbs=stage.querySelectorAll('.goal-cb');
+    if(cbs[i]){
+      if(dd.goals[i].done) cbs[i].classList.add('on');
+      else cbs[i].classList.remove('on');
+    }
   }
 }
 
@@ -1276,7 +1307,8 @@ function autoSaveDump(){
   if(!prevHasText && nowHasText && !(dd.checked && dd.checked.s7)){
     if(!dd.checked) dd.checked={};
     dd.checked.s7=true;
-    const row=document.querySelector('[data-id="s7"]');
+    const stage=document.getElementById('heute-stage');
+    const row=stage?stage.querySelector('[data-id="s7"]'):null;
     if(row){
       row.classList.add('done');
       const chk=row.querySelector('.chk');
@@ -1350,6 +1382,7 @@ function stripIds(html){
   const d=document.createElement('div');
   d.innerHTML=html;
   d.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  d.querySelectorAll('[data-id]').forEach(el=>el.removeAttribute('data-id'));
   return d.innerHTML;
 }
 let _populateTimer=null;
