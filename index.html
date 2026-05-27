@@ -87,7 +87,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   padding-top:    calc(var(--sat) + 1rem);
   padding-left:   calc(var(--sal) + 1rem);
   padding-right:  calc(var(--sar) + 1rem);
-  padding-bottom: calc(var(--tab-h) + var(--sab) + 1.5rem);
+  padding-bottom: calc(var(--tab-h) + var(--sab) + 14px + 1.5rem);
   max-width: 560px;
   margin: 0 auto;
 }
@@ -95,15 +95,31 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* ── Tab Bar ────────────────────────────────────── */
 .tabbar {
   position: fixed;
-  bottom: 0; left: 0; right: 0;
+  bottom: calc(var(--sab) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100vw - 24px);
+  max-width: 460px;
   z-index: 100;
-  border-top: 0.5px solid var(--sep);
-  background: rgba(var(--bg-rgb),0.88);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  padding-bottom: var(--sab);
+  border-radius: 26px;
+  border: 0.5px solid var(--sep);
+  background: rgba(var(--bg-rgb), 0.92);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.10),
+    0 2px 8px rgba(0, 0, 0, 0.04);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+}
+@media (prefers-color-scheme: dark) {
+  .tabbar {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.45),
+      0 2px 8px rgba(0, 0, 0, 0.25);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
 }
 .nb {
   display: flex; flex-direction: column;
@@ -112,15 +128,18 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   height: var(--tab-h);
   background: none; border: none; padding: 0;
   color: var(--t3);
-  font-size: 10px; font-weight: 500; letter-spacing: 0.02em;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: -0.1px;
+  font-family: var(--font);
   transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
-.nb i {
-  font-size: 23px;
+.nb svg {
+  width: 19px; height: 19px;
   transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
 }
 .nb.active { color: var(--blue); }
-.nb.active i { transform: scale(1.1); }
+.nb.active svg { transform: scale(1.08); }
 
 /* ── Pages ──────────────────────────────────────── */
 .pg { display: none; }
@@ -144,6 +163,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
+  overflow: hidden;
 }
 .heute-stage {
   position: relative;
@@ -972,16 +992,38 @@ input[type="week"] {
 <!-- ═══════════════ TAB BAR ═══════════════ -->
 <nav class="tabbar" role="tablist">
   <button class="nb active" onclick="goP('heute',this)" role="tab" aria-label="Heute">
-    <i class="ti ti-sun"></i>Heute
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2"/><path d="M12 20v2"/>
+      <path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/>
+      <path d="M2 12h2"/><path d="M20 12h2"/>
+      <path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+    Heute
   </button>
   <button class="nb" onclick="goP('verlauf',this)" role="tab" aria-label="Verlauf">
-    <i class="ti ti-calendar"></i>Verlauf
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    Verlauf
   </button>
   <button class="nb" onclick="goP('woche',this)" role="tab" aria-label="Woche">
-    <i class="ti ti-notes"></i>Woche
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 20h9"/>
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+    </svg>
+    Woche
   </button>
   <button class="nb" onclick="goP('stats',this)" role="tab" aria-label="Stats">
-    <i class="ti ti-chart-bar"></i>Stats
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="6" y1="20" x2="6" y2="14"/>
+      <line x1="12" y1="20" x2="12" y2="9"/>
+      <line x1="18" y1="20" x2="18" y2="4"/>
+    </svg>
+    Stats
   </button>
 </nav>
 
@@ -997,7 +1039,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v14';
+const APP_VERSION='v16';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1360,8 +1402,9 @@ function scheduleEdgePopulate(){
   function reset(){
     if(track){
       track.style.transition='';
-      track.style.transform='';
       track.style.willChange='';
+      // Transform NICHT löschen — sonst rutscht heute-prev in die Mitte und blockt alle Interaktionen
+      track.style.transform=`translate3d(${-pg.offsetWidth}px,0,0)`;
     }
     swiping=false;
   }
