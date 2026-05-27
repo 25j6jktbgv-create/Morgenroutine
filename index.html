@@ -121,8 +121,24 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
     border-color: rgba(255, 255, 255, 0.08);
   }
 }
+.tab-indicator {
+  position: absolute;
+  top: 5px;
+  height: calc(100% - 10px);
+  left: 0;
+  width: 0;
+  border-radius: 14px;
+  background: var(--blue-bg);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, width;
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
 .nb {
   position: relative;
+  z-index: 1;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 3px;
@@ -132,30 +148,12 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   font-size: 12px; font-weight: 600;
   letter-spacing: -0.1px;
   font-family: var(--font);
-  transition: color 0.25s;
+  transition: color 0.32s;
   -webkit-tap-highlight-color: transparent;
-}
-.nb::before {
-  content: '';
-  position: absolute;
-  inset: 4px 8px;
-  border-radius: 14px;
-  background: var(--blue-bg);
-  opacity: 0;
-  transform: scale(0.86);
-  transition:
-    opacity 0.32s cubic-bezier(0.34,1.56,0.64,1),
-    transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
-  pointer-events: none;
-  z-index: -1;
-}
-.nb.active::before {
-  opacity: 1;
-  transform: scale(1);
 }
 .nb svg {
   width: 19px; height: 19px;
-  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
 }
 .nb.active { color: var(--blue); }
 .nb.active svg { transform: scale(1.08); }
@@ -1018,6 +1016,7 @@ input[type="week"] {
 
 <!-- ═══════════════ TAB BAR ═══════════════ -->
 <nav class="tabbar" role="tablist">
+  <div class="tab-indicator" id="tab-indicator" aria-hidden="true"></div>
   <button class="nb active" onclick="goP('heute',this)" role="tab" aria-label="Heute">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="4"/>
@@ -1066,7 +1065,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v16';
+const APP_VERSION='v17';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1700,15 +1699,40 @@ function initWkPicker(){
   document.getElementById('wk-picker').value=now.getFullYear()+'-W'+String(getISOWeek(now)).padStart(2,'0');
 }
 
+function updateTabIndicator(activeBtn,instant){
+  const tabbar=document.querySelector('.tabbar');
+  const indicator=document.getElementById('tab-indicator');
+  if(!indicator||!tabbar||!activeBtn) return;
+  const tabRect=activeBtn.getBoundingClientRect();
+  const barRect=tabbar.getBoundingClientRect();
+  const left=tabRect.left-barRect.left+8;
+  const w=tabRect.width-16;
+  if(instant){
+    indicator.style.transition='none';
+  }
+  indicator.style.width=w+'px';
+  indicator.style.transform=`translate3d(${left}px,0,0)`;
+  if(instant){
+    void indicator.offsetWidth;
+    indicator.style.transition='';
+  }
+}
+
 function goP(id,btn){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('pg-'+id).classList.add('active');
   btn.classList.add('active');
+  updateTabIndicator(btn);
   if(id==='verlauf'){calMonth=new Date();renderCal();}
   if(id==='woche'){renderMoodRow();renderWrefList();}
   if(id==='stats')renderStats();
 }
+
+// Initial setup + Resize-Handling für den Tab-Indikator
+window.addEventListener('resize',()=>{
+  updateTabIndicator(document.querySelector('.nb.active'),true);
+});
 
 // Detect when sticky header is stuck and add visual separator
 function setupStickyShadow(){
@@ -1731,6 +1755,9 @@ setupStickyShadow();
 document.getElementById('app-version').textContent=APP_VERSION;
 syncCarousel();
 scheduleEdgePopulate();
+requestAnimationFrame(()=>{
+  updateTabIndicator(document.querySelector('.nb.active'),true);
+});
 
 let waitingWorker=null;
 function showUpdateBanner(){
