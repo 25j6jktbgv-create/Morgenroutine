@@ -130,9 +130,23 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   to   { opacity: 1; }
 }
 #pg-heute { position: relative; overflow-x: hidden; }
+.heute-track {
+  display: flex;
+  width: 300%;
+  transform: translate3d(-33.3333%, 0, 0);
+  touch-action: pan-y;
+}
+.heute-pane {
+  flex: 0 0 33.3333%;
+  min-width: 0;
+}
+.heute-side {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .heute-stage {
   position: relative;
-  touch-action: pan-y;
 }
 .pg-title {
   font-size: 28px; font-weight: 700;
@@ -807,7 +821,9 @@ input[type="week"] {
 
 <!-- ═══════════════ HEUTE ═══════════════ -->
 <div class="pg active" id="pg-heute">
-<div class="heute-stage" id="heute-stage">
+<div class="heute-track" id="heute-track">
+<div class="heute-pane heute-side" id="heute-prev"></div>
+<div class="heute-pane heute-stage" id="heute-stage">
 
   <div class="day-nav">
     <button onclick="shiftDay(-1)" aria-label="Vorheriger Tag">
@@ -836,15 +852,17 @@ input[type="week"] {
   <div id="checklist-wrap"></div>
 
   <div class="hour-block" id="hour-block" onclick="toggleHour()">
+    <div class="hour-chk" id="hour-chk" role="checkbox" tabindex="0" aria-label="Routine in unter einer Stunde">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
     <div class="hour-info">
       <div class="hour-title"><i class="ti ti-clock"></i>Routine in unter 1 Stunde?</div>
       <div class="hour-sub" id="hour-sub">Abhaken wenn du von 07:30 bis spätestens 08:30 durch warst.</div>
     </div>
-    <div class="hour-chk" id="hour-chk" role="checkbox" tabindex="0" aria-label="Routine in unter einer Stunde">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-    </div>
   </div>
 </div><!-- /.heute-stage -->
+<div class="heute-pane heute-side" id="heute-next"></div>
+</div><!-- /.heute-track -->
 </div>
 
 <!-- ═══════════════ VERLAUF ═══════════════ -->
@@ -979,7 +997,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v11';
+const APP_VERSION='v13';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1232,36 +1250,87 @@ function autoSaveDump(){
   sv('mr3',data);
 }
 
-function shiftDay(d){viewDate=new Date(viewDate.getTime()+d*86400000);renderHeutePage();}
-function jumpToday(){viewDate=new Date();renderHeutePage();}
+function shiftDay(d){viewDate=new Date(viewDate.getTime()+d*86400000);renderHeutePage();scheduleEdgePopulate();}
+function jumpToday(){viewDate=new Date();renderHeutePage();scheduleEdgePopulate();}
 
-// Swipe-Gesten auf der Heute-Seite — Single-Layer Slide für maximale Performance
+// Vor-Rendering der Nachbartage in die Edge-Panes (off-screen, immer im DOM)
+let _populating=false;
+function populateEdgePanes(){
+  if(_populating) return;
+  const stage=document.getElementById('heute-stage');
+  const prevPane=document.getElementById('heute-prev');
+  const nextPane=document.getElementById('heute-next');
+  if(!stage||!prevPane||!nextPane) return;
+
+  _populating=true;
+  const origDate=new Date(viewDate);
+  const origHTML=stage.innerHTML;
+  try{
+    // Rendere gestern → fang HTML aus Stage ab → in prev-Pane (ohne IDs)
+    viewDate=new Date(origDate.getTime()-86400000);
+    renderHeutePage();
+    const prevHTML=stage.innerHTML;
+
+    viewDate=new Date(origDate.getTime()+86400000);
+    renderHeutePage();
+    const nextHTML=stage.innerHTML;
+
+    // Stage zurück auf Original
+    viewDate=origDate;
+    stage.innerHTML=origHTML;
+
+    // Edge-Panes befüllen — IDs strippen damit getElementById nicht falsch findet
+    prevPane.innerHTML=stripIds(prevHTML);
+    nextPane.innerHTML=stripIds(nextHTML);
+  }finally{
+    _populating=false;
+  }
+}
+function stripIds(html){
+  const d=document.createElement('div');
+  d.innerHTML=html;
+  d.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  return d.innerHTML;
+}
+let _populateTimer=null;
+function scheduleEdgePopulate(){
+  if(_populating) return;
+  if(_populateTimer) clearTimeout(_populateTimer);
+  _populateTimer=setTimeout(()=>{
+    _populateTimer=null;
+    populateEdgePanes();
+  },60);
+}
+
+// Swipe — Track-basierter Carousel
 (function(){
   const pg=document.getElementById('pg-heute');
   if(!pg) return;
   const ACTIVATE=8;
   const COMMIT_RATIO=0.20;
-  const ANIM=220;
+  const ANIM=240;
   const EASE='cubic-bezier(0.25,0.1,0.25,1)';
 
   let sx=0,sy=0,active=false,intent='none';
-  let stage=null,width=0,swiping=false;
+  let track=null,width=0,swiping=false;
   let pendingDx=0,rafId=null;
 
-  function getStage(){ return document.getElementById('heute-stage'); }
+  function getTrack(){ return document.getElementById('heute-track'); }
+
+  function baseOffset(){ return -width; } // Track-Position für "Stage zentriert"
 
   function startSwipe(){
     swiping=true;
     width=pg.offsetWidth;
-    stage=getStage();
-    stage.style.willChange='transform';
-    stage.style.transition='none';
+    track=getTrack();
+    track.style.willChange='transform';
+    track.style.transition='none';
   }
 
   function applyMove(){
     rafId=null;
-    if(!swiping||!stage) return;
-    stage.style.transform=`translate3d(${pendingDx}px,0,0)`;
+    if(!swiping||!track) return;
+    track.style.transform=`translate3d(${baseOffset()+pendingDx}px,0,0)`;
   }
 
   function moveSwipe(dx){
@@ -1271,10 +1340,10 @@ function jumpToday(){viewDate=new Date();renderHeutePage();}
   }
 
   function reset(){
-    if(stage){
-      stage.style.transition='';
-      stage.style.transform='';
-      stage.style.willChange='';
+    if(track){
+      track.style.transition='';
+      track.style.transform='';
+      track.style.willChange='';
     }
     swiping=false;
   }
@@ -1286,28 +1355,29 @@ function jumpToday(){viewDate=new Date();renderHeutePage();}
     if(dx<-width*COMMIT_RATIO) dir=1;
     else if(dx> width*COMMIT_RATIO) dir=-1;
 
+    track.style.transition=`transform ${ANIM}ms ${EASE}`;
+
     if(dir===0){
-      // Revert
-      stage.style.transition=`transform ${ANIM}ms ${EASE}`;
-      stage.style.transform='translate3d(0,0,0)';
+      track.style.transform=`translate3d(${baseOffset()}px,0,0)`;
       setTimeout(reset,ANIM+20);
       return;
     }
-    // Commit: alte Seite raus, neue Seite rein
-    const exitX=dir>0?-width:width;
-    stage.style.transition=`transform ${ANIM}ms ${EASE}`;
-    stage.style.transform=`translate3d(${exitX}px,0,0)`;
+
+    // Commit: Track auf Nachbarpane animieren
+    const commitX=dir>0?-2*width:0;
+    track.style.transform=`translate3d(${commitX}px,0,0)`;
     setTimeout(()=>{
+      // Neuen Tag setzen und Stage frisch rendern
       viewDate=new Date(viewDate.getTime()+dir*86400000);
       renderHeutePage();
-      stage=getStage();
-      stage.style.willChange='transform';
-      stage.style.transition='none';
-      stage.style.transform=`translate3d(${-exitX}px,0,0)`;
-      void stage.offsetWidth; // layout flush
-      stage.style.transition=`transform ${ANIM}ms ${EASE}`;
-      stage.style.transform='translate3d(0,0,0)';
-      setTimeout(reset,ANIM+20);
+      // Track ohne Animation auf Standardposition zurück (Stage in der Mitte)
+      track=getTrack();
+      track.style.transition='none';
+      track.style.transform=`translate3d(${baseOffset()}px,0,0)`;
+      void track.offsetWidth;
+      reset();
+      // Edge-Panes für neue Nachbarn nachladen (in Idle)
+      scheduleEdgePopulate();
     },ANIM+20);
   }
 
@@ -1565,6 +1635,7 @@ renderMoodRow();
 renderWrefList();
 setupStickyShadow();
 document.getElementById('app-version').textContent=APP_VERSION;
+scheduleEdgePopulate();
 
 let waitingWorker=null;
 function showUpdateBanner(){
