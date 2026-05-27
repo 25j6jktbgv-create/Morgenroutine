@@ -985,7 +985,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v8';
+const APP_VERSION='v9';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1241,72 +1241,101 @@ function autoSaveDump(){
 function shiftDay(d){viewDate=new Date(viewDate.getTime()+d*86400000);renderHeutePage();}
 function jumpToday(){viewDate=new Date();renderHeutePage();}
 
-// Swipe-Gesten auf der Heute-Seite (Zwei-Layer-Slide mit Clone)
+// Swipe-Gesten auf der Heute-Seite (Zwei-Layer-Slide, deferred render)
 (function(){
   const pg=document.getElementById('pg-heute');
   if(!pg) return;
-  const ACTIVATE=10;       // px bis horizontale Intention erkannt
-  const COMMIT_RATIO=0.22; // Anteil der Seitenbreite zum Commit
-  const ANIM=240;          // ms Animationsdauer
+  const ACTIVATE=8;
+  const COMMIT_RATIO=0.22;
+  const ANIM=260;
+  const EASE='cubic-bezier(0.2,0.8,0.2,1)';
 
   let sx=0,sy=0,active=false,intent='none';
   let stage=null,clone=null;
   let direction=0,swiping=false,savedDate=null,width=0;
+  let didRender=false;
+  let pendingDx=0,rafId=null;
 
   function getStage(){ return document.getElementById('heute-stage'); }
 
   function startSwipe(dir){
     direction=dir;
     swiping=true;
+    didRender=false;
     savedDate=new Date(viewDate);
     width=pg.offsetWidth;
     stage=getStage();
-    // Snapshot der aktuellen (alten) Tagesansicht
+
+    // SYNCHRON: nur das Nötigste — Klonen, positionieren, kein Re-Render
     clone=stage.cloneNode(true);
     clone.id='';
     clone.classList.remove('heute-stage');
     clone.classList.add('heute-clone');
     clone.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
-    clone.style.transform='translateX(0)';
-    // Neuen Tag in die Stage rendern
-    viewDate=new Date(viewDate.getTime()+dir*86400000);
-    renderHeutePage();
-    // Stage off-screen positionieren (von wo sie reinkommt)
+    clone.style.willChange='transform';
+    clone.style.transform='translate3d(0,0,0)';
+
+    stage.style.willChange='transform';
     stage.style.transition='none';
-    stage.style.transform=`translateX(${dir*100}%)`;
+    stage.style.transform=`translate3d(${dir*width}px,0,0)`;
     pg.appendChild(clone);
-    void pg.offsetHeight; // layout flush
+
+    // ASYNCHRON: neuen Tag rendern (off-screen, unsichtbar für User)
+    requestAnimationFrame(()=>{
+      if(!swiping || didRender) return;
+      viewDate=new Date(savedDate.getTime()+dir*86400000);
+      renderHeutePage();
+      didRender=true;
+    });
+  }
+
+  function applyMove(){
+    rafId=null;
+    if(!swiping||!clone||!stage) return;
+    clone.style.transform=`translate3d(${pendingDx}px,0,0)`;
+    stage.style.transform=`translate3d(${direction*width+pendingDx}px,0,0)`;
   }
 
   function moveSwipe(dx){
     if(!swiping) return;
-    clone.style.transform=`translateX(${dx}px)`;
-    stage.style.transform=`translateX(calc(${direction*100}% + ${dx}px))`;
+    pendingDx=dx;
+    if(rafId==null) rafId=requestAnimationFrame(applyMove);
   }
 
   function endSwipe(dx){
     if(!swiping) return;
+    if(rafId!=null){cancelAnimationFrame(rafId);rafId=null;}
     let commit=false;
     if(direction===1  && dx<-width*COMMIT_RATIO) commit=true;
     if(direction===-1 && dx> width*COMMIT_RATIO) commit=true;
-    const ease='cubic-bezier(0.4,0,0.2,1)';
-    stage.style.transition=`transform ${ANIM}ms ${ease}`;
-    clone.style.transition=`transform ${ANIM}ms ${ease}`;
+
+    if(commit && !didRender){
+      viewDate=new Date(savedDate.getTime()+direction*86400000);
+      renderHeutePage();
+      didRender=true;
+    }
+
+    stage.style.transition=`transform ${ANIM}ms ${EASE}`;
+    clone.style.transition=`transform ${ANIM}ms ${EASE}`;
     if(commit){
-      clone.style.transform=`translateX(${direction===1?'-100%':'100%'})`;
-      stage.style.transform='translateX(0)';
+      clone.style.transform=`translate3d(${direction===1?-width:width}px,0,0)`;
+      stage.style.transform='translate3d(0,0,0)';
     }else{
-      clone.style.transform='translateX(0)';
-      stage.style.transform=`translateX(${direction*100}%)`;
+      clone.style.transform='translate3d(0,0,0)';
+      stage.style.transform=`translate3d(${direction*width}px,0,0)`;
     }
     setTimeout(()=>{
       if(clone){clone.remove();clone=null;}
-      if(stage){stage.style.transition='';stage.style.transform='';}
-      if(!commit){
+      if(stage){
+        stage.style.transition='';
+        stage.style.transform='';
+        stage.style.willChange='';
+      }
+      if(!commit && didRender){
         viewDate=savedDate;
         renderHeutePage();
       }
-      swiping=false;direction=0;savedDate=null;
+      swiping=false;direction=0;savedDate=null;didRender=false;
     },ANIM+20);
   }
 
