@@ -1,4 +1,4 @@
-const CACHE = 'morgenroutine-v9';
+const CACHE = 'morgenroutine-v10';
 const PRECACHE = ['./index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
