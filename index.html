@@ -821,11 +821,25 @@ input[type="week"] {
   from { transform: translateY(-100%); }
   to   { transform: translateY(0); }
 }
+.update-banner.updating { background: rgba(0,122,255,0.96); }
 .update-banner-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
+  gap: 11px;
+  padding: 13px 16px;
+}
+.update-banner-icon {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  animation: updPulse 1.8s ease-in-out infinite;
+}
+.update-banner-icon svg { width: 17px; height: 17px; fill: #fff; }
+@keyframes updPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
+  50%      { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(255,255,255,0); }
 }
 .update-banner-text {
   flex: 1;
@@ -834,17 +848,17 @@ input[type="week"] {
   min-width: 0;
 }
 .update-banner-text strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.1px;
 }
 .update-banner-text span {
-  font-size: 11.5px;
+  font-size: 12px;
   opacity: 0.92;
   margin-top: 1px;
 }
 .update-btn {
-  padding: 7px 14px;
+  padding: 8px 16px;
   background: #fff;
   color: var(--blue);
   border: none;
@@ -854,8 +868,22 @@ input[type="week"] {
   flex-shrink: 0;
   font-family: var(--font);
   transition: transform 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 .update-btn:active { transform: scale(0.94); }
+.update-btn:disabled { opacity: 0.85; }
+.update-spinner {
+  width: 13px; height: 13px;
+  border: 2px solid var(--blue-bg);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .update-dismiss {
   width: 26px; height: 26px;
   border-radius: 50%;
@@ -870,6 +898,54 @@ input[type="week"] {
   font-family: var(--font);
 }
 
+/* ── Update-Erfolgs-Toast ───────────────────────── */
+.update-toast {
+  position: fixed;
+  top: calc(var(--sat) + 14px);
+  left: 50%;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  gap: 9px;
+  background: var(--green);
+  color: #fff;
+  padding: 11px 18px 11px 14px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.22);
+  transform: translateX(-50%) translateY(-24px);
+  opacity: 0;
+}
+.update-toast.show { display: flex; animation: toastIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.update-toast.hide { animation: toastOut 0.32s ease forwards; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-24px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(-24px); }
+}
+.update-toast-check {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.update-toast-check svg {
+  width: 13px; height: 13px;
+  fill: none; stroke: #fff; stroke-width: 3.5;
+  stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+.update-toast.show .update-toast-check svg {
+  animation: checkDraw 0.4s 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+@keyframes checkDraw { to { stroke-dashoffset: 0; } }
+
 /* ── Empty state ────────────────────────────────── */
 .empty { text-align: center; padding: 2rem 1rem; font-size: 14px; color: var(--t3); }
 </style>
@@ -879,13 +955,21 @@ input[type="week"] {
 
 <div class="update-banner" id="update-banner" role="status">
   <div class="update-banner-inner">
+    <div class="update-banner-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20.5 8.5l-5 3.84L17.27 19 12 15.5 6.73 19l1.77-6.66-5-3.84 6.41-.24z"/></svg>
+    </div>
     <div class="update-banner-text">
       <strong>Neue Version verfügbar</strong>
-      <span>Tippe auf Aktualisieren, um die neueste Version zu laden.</span>
+      <span>Tippe auf Aktualisieren für die neueste Version.</span>
     </div>
-    <button class="update-btn" onclick="applyUpdate()">Aktualisieren</button>
+    <button class="update-btn" id="update-btn" onclick="applyUpdate()">Aktualisieren</button>
     <button class="update-dismiss" onclick="dismissUpdate()" aria-label="Später">×</button>
   </div>
+</div>
+
+<div class="update-toast" id="update-toast" role="status">
+  <span class="update-toast-check"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+  <span>Auf <strong id="update-toast-version"></strong> aktualisiert</span>
 </div>
 
 <div class="wrap">
@@ -1101,7 +1185,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v21';
+const APP_VERSION='v22';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1922,6 +2006,14 @@ requestAnimationFrame(()=>{
   updateTabIndicator(document.querySelector('.nb.active'),true);
 });
 
+// Nach erfolgreichem Update: Erfolgs-Toast zeigen
+try{
+  if(sessionStorage.getItem('mr_just_updated')){
+    sessionStorage.removeItem('mr_just_updated');
+    setTimeout(showUpdateSuccess,400);
+  }
+}catch{}
+
 let waitingWorker=null;
 function showUpdateBanner(){
   const el=document.getElementById('update-banner');
@@ -1932,11 +2024,36 @@ function dismissUpdate(){
   if(el) el.style.display='none';
 }
 function applyUpdate(){
+  // Flag setzen, damit nach dem Reload der Erfolgs-Toast erscheint
+  try{ sessionStorage.setItem('mr_just_updated','1'); }catch{}
+  // Button in Lade-Zustand versetzen
+  const btn=document.getElementById('update-btn');
+  if(btn){
+    btn.disabled=true;
+    btn.innerHTML='<span class="update-spinner"></span>Installiere…';
+  }
+  const banner=document.getElementById('update-banner');
+  if(banner) banner.classList.add('updating');
   if(waitingWorker){
     waitingWorker.postMessage({type:'SKIP_WAITING'});
+    // Fallback falls controllerchange nicht feuert
+    setTimeout(()=>window.location.reload(),1500);
   }else{
-    window.location.reload();
+    setTimeout(()=>window.location.reload(),400);
   }
+}
+
+function showUpdateSuccess(){
+  const toast=document.getElementById('update-toast');
+  if(!toast) return;
+  const v=document.getElementById('update-toast-version');
+  if(v) v.textContent=APP_VERSION;
+  toast.classList.add('show');
+  setTimeout(()=>{
+    toast.classList.remove('show');
+    toast.classList.add('hide');
+    setTimeout(()=>{toast.classList.remove('hide');toast.style.display='none';},340);
+  },2600);
 }
 
 if('serviceWorker' in navigator){
