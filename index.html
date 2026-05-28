@@ -561,6 +561,16 @@ textarea::placeholder { color: var(--t3); }
 }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
 .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 5px; }
+.cal-track-wrap { position: relative; overflow-x: hidden; }
+.cal-track { display: flex; touch-action: pan-y; }
+.cal-pane {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  align-content: start;
+}
+.cal-side { pointer-events: none; }
 .cal-head {
   text-align: center;
   font-size: 11px; font-weight: 700;
@@ -624,6 +634,14 @@ textarea::placeholder { color: var(--t3); }
 .cal-cell.full .cal-crown-overlay,
 .cal-cell.part .cal-crown-overlay {
   color: #fff;
+}
+.cal-streak-flame {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
 }
 .legend-icon {
   width: 12px; height: 12px;
@@ -935,9 +953,16 @@ input[type="week"] {
       </svg>
       Unter 1 Std.
     </div>
+    <div class="legend-item"><span style="font-size:13px">🔥</span>Serie</div>
   </div>
   <div class="cal-grid" id="cal-heads"></div>
-  <div class="cal-grid" id="cal-cells"></div>
+  <div class="cal-track-wrap">
+    <div class="cal-track" id="cal-track">
+      <div class="cal-pane cal-side" id="cal-prev"></div>
+      <div class="cal-pane" id="cal-cells"></div>
+      <div class="cal-pane cal-side" id="cal-next"></div>
+    </div>
+  </div>
   <div id="day-detail-wrap"></div>
 </div>
 
@@ -1065,7 +1090,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v17';
+const APP_VERSION='v20';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1355,7 +1380,6 @@ function populateEdgePanes(){
 
   _populating=true;
   const origDate=new Date(viewDate);
-  const origHTML=stage.innerHTML;
   try{
     // Rendere gestern → fang HTML aus Stage ab → in prev-Pane (ohne IDs)
     viewDate=new Date(origDate.getTime()-86400000);
@@ -1366,9 +1390,9 @@ function populateEdgePanes(){
     renderHeutePage();
     const nextHTML=stage.innerHTML;
 
-    // Stage zurück auf Original
+    // Vollständig auf Originaltag zurückrendern — auch Datum/Progress außerhalb der Stage
     viewDate=origDate;
-    stage.innerHTML=origHTML;
+    renderHeutePage();
 
     // Edge-Panes befüllen — IDs strippen damit getElementById nicht falsch findet
     prevPane.innerHTML=stripIds(prevHTML);
@@ -1519,32 +1543,158 @@ function scheduleEdgePopulate(){
   },{passive:true});
 })();
 
-function renderCal(){
-  const months=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  document.getElementById('month-lbl').textContent=months[calMonth.getMonth()]+' '+calMonth.getFullYear();
-  document.getElementById('cal-heads').innerHTML=['Mo','Di','Mi','Do','Fr','Sa','So'].map(h=>`<div class="cal-head">${h}</div>`).join('');
-  const first=new Date(calMonth.getFullYear(),calMonth.getMonth(),1);
-  const last=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,0);
+// Swipe-Gesten im Verlauf — Monatswechsel per Carousel
+(function(){
+  const pg=document.getElementById('pg-verlauf');
+  if(!pg) return;
+  const ACTIVATE=8,COMMIT_RATIO=0.20,ANIM=240,EASE='cubic-bezier(0.25,0.1,0.25,1)';
+  let sx=0,sy=0,active=false,intent='none';
+  let track=null,width=0,swiping=false,pendingDx=0,rafId=null;
+
+  function getTrack(){ return document.getElementById('cal-track'); }
+  function base(){ return -width; }
+
+  function startSwipe(){
+    swiping=true;
+    const wrap=pg.querySelector('.cal-track-wrap');
+    width=wrap?wrap.offsetWidth:pg.offsetWidth;
+    track=getTrack();
+    track.style.willChange='transform';
+    track.style.transition='none';
+  }
+  function applyMove(){
+    rafId=null;
+    if(!swiping||!track) return;
+    track.style.transform=`translate3d(${base()+pendingDx}px,0,0)`;
+  }
+  function moveSwipe(dx){
+    if(!swiping) return;
+    pendingDx=dx;
+    if(rafId==null) rafId=requestAnimationFrame(applyMove);
+  }
+  function endSwipe(dx){
+    if(!swiping) return;
+    if(rafId!=null){cancelAnimationFrame(rafId);rafId=null;}
+    let dir=0;
+    if(dx<-width*COMMIT_RATIO) dir=1;
+    else if(dx> width*COMMIT_RATIO) dir=-1;
+    track.style.transition=`transform ${ANIM}ms ${EASE}`;
+    if(dir===0){
+      track.style.transform=`translate3d(${base()}px,0,0)`;
+      setTimeout(()=>{ if(track){track.style.transition='';track.style.willChange='';} swiping=false; },ANIM+20);
+      return;
+    }
+    const commitX=dir>0?-2*width:0;
+    track.style.transform=`translate3d(${commitX}px,0,0)`;
+    setTimeout(()=>{
+      // Monat wechseln, mittlere Pane neu rendern, Track ohne Animation zurück
+      calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+dir,1);
+      renderCal();
+      track=getTrack();
+      track.style.transition='none';
+      track.style.transform=`translate3d(${base()}px,0,0)`;
+      void track.offsetWidth;
+      track.style.transition='';
+      track.style.willChange='';
+      swiping=false;
+      populateCalEdges();
+    },ANIM+20);
+  }
+
+  pg.addEventListener('touchstart',e=>{
+    if(swiping) return;
+    if(e.touches.length!==1) return;
+    if(e.target.closest('input, textarea, button')) return;
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+    active=true;intent='none';
+  },{passive:true});
+  pg.addEventListener('touchmove',e=>{
+    if(!active||e.touches.length!==1) return;
+    const dx=e.touches[0].clientX-sx,dy=e.touches[0].clientY-sy;
+    const adx=Math.abs(dx),ady=Math.abs(dy);
+    if(intent==='none'){
+      if(adx>ACTIVATE||ady>ACTIVATE){
+        if(adx>ady*1.2){intent='horizontal';startSwipe();}
+        else intent='vertical';
+      }
+    }
+    if(intent==='horizontal'){moveSwipe(dx);e.preventDefault();}
+  },{passive:false});
+  pg.addEventListener('touchend',e=>{
+    if(!active) return;
+    active=false;
+    if(intent!=='horizontal'){intent='none';return;}
+    endSwipe(e.changedTouches[0].clientX-sx);
+    intent='none';
+  },{passive:true});
+  pg.addEventListener('touchcancel',()=>{
+    if(swiping) endSwipe(0);
+    active=false;intent='none';
+  },{passive:true});
+})();
+
+function isDayFull(dateObj){
+  const dd=data.days[dk(dateObj)];
+  if(!dd) return false;
+  return Object.values(dd.checked||{}).filter(Boolean).length===STEPS.length;
+}
+
+function buildMonthCells(monthDate){
+  const y=monthDate.getFullYear(),m=monthDate.getMonth();
+  const first=new Date(y,m,1);
+  const last=new Date(y,m+1,0);
   let startDow=first.getDay()===0?6:first.getDay()-1;
   let cells='';
   for(let i=0;i<startDow;i++)cells+=`<div></div>`;
   for(let d=1;d<=last.getDate();d++){
-    const dt=new Date(calMonth.getFullYear(),calMonth.getMonth(),d);
+    const dt=new Date(y,m,d);
     const k=dk(dt);const dd=data.days[k];
     const done=dd?Object.values(dd.checked||{}).filter(Boolean).length:0;
     const fast=dd&&dd.fast;
     const isToday=k===todayKey();const isSel=selCalDay===k;
+    const isFull=done===STEPS.length;
+    let inStreak=false;
+    if(isFull){
+      inStreak=isDayFull(new Date(dt.getTime()-86400000)) || isDayFull(new Date(dt.getTime()+86400000));
+    }
     let cls='cal-cell';
-    if(done===STEPS.length)              cls+=' full';
+    if(isFull)                           cls+=' full';
     else if(done>0)                      cls+=' part';
     if(isToday)                          cls+=' today';
     if(isSel)                            cls+=' sel';
     if(fast)                             cls+=' has-crown';
     const crown=fast?`<span class="cal-crown-overlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14l2-10-5 4-4-6-4 6-5-4 2 10zm0 2h14v2H5v-2z" fill="currentColor"/><text x="12" y="15" text-anchor="middle" font-size="7.5" font-weight="900" fill="#3C3489" font-family="-apple-system,BlinkMacSystemFont,sans-serif">1</text></svg></span>`:'';
-    cells+=`<div class="${cls}" onclick="selDay('${k}')">${crown}${d}</div>`;
+    const flame=inStreak?`<span class="cal-streak-flame">🔥</span>`:'';
+    cells+=`<div class="${cls}" onclick="selDay('${k}')">${crown}${flame}${d}</div>`;
   }
-  document.getElementById('cal-cells').innerHTML=cells;
+  return cells;
+}
+
+function renderCal(){
+  const months=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  document.getElementById('month-lbl').textContent=months[calMonth.getMonth()]+' '+calMonth.getFullYear();
+  document.getElementById('cal-heads').innerHTML=['Mo','Di','Mi','Do','Fr','Sa','So'].map(h=>`<div class="cal-head">${h}</div>`).join('');
+  document.getElementById('cal-cells').innerHTML=buildMonthCells(calMonth);
   if(selCalDay)renderDayDetail(selCalDay);
+}
+
+function populateCalEdges(){
+  const prevM=new Date(calMonth.getFullYear(),calMonth.getMonth()-1,1);
+  const nextM=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,1);
+  const p=document.getElementById('cal-prev'),n=document.getElementById('cal-next');
+  if(p)p.innerHTML=buildMonthCells(prevM);
+  if(n)n.innerHTML=buildMonthCells(nextM);
+}
+
+function syncCalCarousel(){
+  const wrap=document.querySelector('.cal-track-wrap');
+  const track=document.getElementById('cal-track');
+  if(!wrap||!track) return;
+  const w=wrap.offsetWidth;
+  if(!w) return;
+  track.style.width=(3*w)+'px';
+  wrap.querySelectorAll('.cal-pane').forEach(p=>{p.style.width=w+'px';p.style.flex='0 0 '+w+'px';});
+  track.style.transform=`translate3d(${-w}px,0,0)`;
 }
 
 function selDay(k){selCalDay=k;renderCal();renderDayDetail(k);}
@@ -1577,7 +1727,7 @@ function renderDayDetail(k){
   el.innerHTML=html;
 }
 
-function shiftMonth(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);renderCal();}
+function shiftMonth(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);renderCal();populateCalEdges();}
 
 function renderMoodRow(){
   document.getElementById('mood-row').innerHTML=MOODS.map(m=>
@@ -1724,7 +1874,7 @@ function goP(id,btn){
   document.getElementById('pg-'+id).classList.add('active');
   btn.classList.add('active');
   updateTabIndicator(btn);
-  if(id==='verlauf'){calMonth=new Date();renderCal();}
+  if(id==='verlauf'){calMonth=new Date();renderCal();syncCalCarousel();populateCalEdges();}
   if(id==='woche'){renderMoodRow();renderWrefList();}
   if(id==='stats')renderStats();
 }
@@ -1732,6 +1882,7 @@ function goP(id,btn){
 // Initial setup + Resize-Handling für den Tab-Indikator
 window.addEventListener('resize',()=>{
   updateTabIndicator(document.querySelector('.nb.active'),true);
+  syncCalCarousel();
 });
 
 // Detect when sticky header is stuck and add visual separator
