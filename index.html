@@ -800,151 +800,75 @@ input[type="week"] {
 .b-blue   { background: var(--blue-bg);   color: var(--blue);   }
 .b-purple { background: var(--purple-bg); color: var(--purple); }
 
-/* ── Update Banner ──────────────────────────────── */
-.update-banner {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 200;
-  padding-top: var(--sat);
-  background: rgba(0,122,255,0.96);
-  color: #fff;
-  display: none;
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  animation: slidedown 0.35s cubic-bezier(0.34,1.56,0.64,1);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-}
-@media (prefers-color-scheme: dark) {
-  .update-banner { background: rgba(10,132,255,0.96); }
-}
-@keyframes slidedown {
-  from { transform: translateY(-100%); }
-  to   { transform: translateY(0); }
-}
-.update-banner.updating { background: rgba(0,122,255,0.96); }
-.update-banner-inner {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 13px 16px;
-}
-.update-banner-icon {
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
+/* ── Update Pop-up ──────────────────────────────── */
+.upd-backdrop {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  animation: updPulse 1.8s ease-in-out infinite;
+  padding: 1.5rem;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
 }
-.update-banner-icon svg { width: 17px; height: 17px; fill: #fff; }
+.upd-backdrop.show { opacity: 1; pointer-events: auto; }
+.upd-modal {
+  position: relative; overflow: hidden;
+  background: var(--surface);
+  border-radius: 26px;
+  padding: 30px 24px 22px;
+  max-width: 340px; width: 100%;
+  text-align: center;
+  transform: scale(0.85); opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s, padding-bottom 0.55s cubic-bezier(0.4,0,0.2,1);
+}
+.upd-backdrop.show .upd-modal { transform: scale(1); opacity: 1; }
+.upd-modal.garden { padding-bottom: 82px; }
+.upd-sf-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; border-radius: 26px; }
+.upd-content { position: relative; z-index: 2; }
+.upd-iconwrap { height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.upd-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--blue-bg); display: flex; align-items: center; justify-content: center; }
+.upd-icon svg { width: 32px; height: 32px; fill: var(--blue); }
+.upd-icon.pulse { animation: updPulse 1.8s ease-in-out infinite; }
 @keyframes updPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
-  50%      { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(255,255,255,0); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,122,255,0.25); }
+  50%      { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(0,122,255,0); }
 }
-.update-banner-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.upd-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; color: var(--t1); }
+.upd-title.done { color: var(--green); }
+.upd-desc { font-size: 14px; color: var(--t2); margin-bottom: 20px; }
+.upd-go {
+  width: 100%; padding: 13px;
+  background: var(--blue); color: #fff;
+  border: none; border-radius: 14px;
+  font-size: 15px; font-weight: 600; font-family: var(--font);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
 }
-.update-banner-text strong {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.1px;
-}
-.update-banner-text span {
-  font-size: 12px;
-  opacity: 0.92;
-  margin-top: 1px;
-}
-.update-btn {
-  padding: 8px 16px;
-  background: #fff;
-  color: var(--blue);
-  border: none;
-  border-radius: 100px;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-  font-family: var(--font);
-  transition: transform 0.12s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-.update-btn:active { transform: scale(0.94); }
-.update-btn:disabled { opacity: 0.85; }
-.update-spinner {
-  width: 13px; height: 13px;
-  border: 2px solid var(--blue-bg);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
+.upd-go:disabled { opacity: 0.9; }
+.upd-later { display: block; width: 100%; margin-top: 10px; padding: 8px; background: none; border: none; color: var(--t2); font-size: 14px; font-family: var(--font); cursor: pointer; }
+.upd-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.update-dismiss {
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.22);
-  color: #fff;
-  border: none;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  padding: 0;
-  font-size: 18px;
-  line-height: 1;
-  font-family: var(--font);
-}
 
-/* ── Update-Erfolgs-Toast ───────────────────────── */
-.update-toast {
-  position: fixed;
-  top: calc(var(--sat) + 14px);
-  left: 50%;
-  z-index: 300;
-  display: none;
-  align-items: center;
-  gap: 9px;
-  background: var(--green);
-  color: #fff;
-  padding: 11px 18px 11px 14px;
-  border-radius: 100px;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 8px 26px rgba(0,0,0,0.22);
-  transform: translateX(-50%) translateY(-24px);
-  opacity: 0;
-}
-.update-toast.show { display: flex; animation: toastIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-.update-toast.hide { animation: toastOut 0.32s ease forwards; }
-@keyframes toastIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-24px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-@keyframes toastOut {
-  from { opacity: 1; transform: translateX(-50%) translateY(0); }
-  to   { opacity: 0; transform: translateX(-50%) translateY(-24px); }
-}
-.update-toast-check {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.25);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.update-toast-check svg {
-  width: 13px; height: 13px;
-  fill: none; stroke: #fff; stroke-width: 3.5;
-  stroke-linecap: round; stroke-linejoin: round;
-  stroke-dasharray: 24;
-  stroke-dashoffset: 24;
-}
-.update-toast.show .update-toast-check svg {
-  animation: checkDraw 0.4s 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
-}
-@keyframes checkDraw { to { stroke-dashoffset: 0; } }
+/* Spring-Pop Haken */
+.upd-check { width: 72px; height: 72px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; animation: updPop 0.5s cubic-bezier(0.34,1.7,0.5,1) both; }
+@keyframes updPop { 0%{transform:scale(0);} 60%{transform:scale(1.15);} 100%{transform:scale(1);} }
+.upd-check svg { width: 36px; height: 36px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: updDraw 0.35s 0.28s cubic-bezier(0.4,0,0.2,1) forwards; }
+@keyframes updDraw { to { stroke-dashoffset: 0; } }
+
+/* Sonnenblumen */
+.upd-sf { position: absolute; width: 40px; margin-left: -20px; transform-origin: bottom center; transform: scale(0); }
+.upd-sf svg { width: 100%; display: block; }
+.upd-sf.grow { animation: sfGrow 0.85s var(--d,0s) cubic-bezier(0.34,1.25,0.5,1) forwards; }
+@keyframes sfGrow { 0%{transform:scale(0);} 72%{transform:scale(calc(var(--s,1) * 1.07));} 100%{transform:scale(var(--s,1));} }
+.upd-sf .sway { animation: sfSway 2.6s ease-in-out infinite; transform-origin: bottom center; }
+@keyframes sfSway { 0%,100%{rotate:-2deg;} 50%{rotate:2deg;} }
+
+/* Sonne in der Ecke */
+.upd-sun { position: absolute; width: 62px; height: 62px; top: -16px; left: -16px; transform: scale(0); transform-origin: center; z-index: 1; }
+.upd-sun.go { animation: sunIn 0.7s 0.05s cubic-bezier(0.34,1.5,0.5,1) forwards; }
+@keyframes sunIn { to { transform: scale(1); } }
+.upd-sun .rays { transform-origin: 31px 31px; animation: sunSpin 22s linear infinite; }
+@keyframes sunSpin { to { transform: rotate(360deg); } }
 
 /* ── Empty state ────────────────────────────────── */
 .empty { text-align: center; padding: 2rem 1rem; font-size: 14px; color: var(--t3); }
@@ -953,23 +877,19 @@ input[type="week"] {
 <body>
 <h1 class="sr-only">Morgenroutine Tracker</h1>
 
-<div class="update-banner" id="update-banner" role="status">
-  <div class="update-banner-inner">
-    <div class="update-banner-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20.5 8.5l-5 3.84L17.27 19 12 15.5 6.73 19l1.77-6.66-5-3.84 6.41-.24z"/></svg>
+<div class="upd-backdrop" id="upd-backdrop" role="dialog" aria-modal="true">
+  <div class="upd-modal" id="upd-modal">
+    <div class="upd-sf-layer" id="upd-sf-layer" aria-hidden="true"></div>
+    <div class="upd-content">
+      <div class="upd-iconwrap" id="upd-iconwrap">
+        <div class="upd-icon pulse"><svg viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20.5 8.5l-5 3.84L17.27 19 12 15.5 6.73 19l1.77-6.66-5-3.84 6.41-.24z"/></svg></div>
+      </div>
+      <div class="upd-title" id="upd-title">Neue Version verfügbar</div>
+      <div class="upd-desc" id="upd-desc">Es ist eine aktualisierte Version der App bereit. Jetzt laden?</div>
+      <button class="upd-go" id="upd-go" onclick="applyUpdate()">Aktualisieren</button>
+      <button class="upd-later" id="upd-later" onclick="dismissUpdate()">Später</button>
     </div>
-    <div class="update-banner-text">
-      <strong>Neue Version verfügbar</strong>
-      <span>Tippe auf Aktualisieren für die neueste Version.</span>
-    </div>
-    <button class="update-btn" id="update-btn" onclick="applyUpdate()">Aktualisieren</button>
-    <button class="update-dismiss" onclick="dismissUpdate()" aria-label="Später">×</button>
   </div>
-</div>
-
-<div class="update-toast" id="update-toast" role="status">
-  <span class="update-toast-check"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
-  <span>Auf <strong id="update-toast-version"></strong> aktualisiert</span>
 </div>
 
 <div class="wrap">
@@ -1185,7 +1105,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v22';
+const APP_VERSION='v23';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -2015,45 +1935,84 @@ try{
 }catch{}
 
 let waitingWorker=null;
+const UPD_SPARKLE='<div class="upd-icon pulse"><svg viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20.5 8.5l-5 3.84L17.27 19 12 15.5 6.73 19l1.77-6.66-5-3.84 6.41-.24z"/></svg></div>';
+
+function updSunflower(){
+  let petals='';
+  for(let i=0;i<12;i++) petals+=`<ellipse cx="20" cy="9" rx="3" ry="7" transform="rotate(${i*30} 20 20)"/>`;
+  return `<svg viewBox="0 0 40 66"><path d="M20 66 L20 27" stroke="#4E8A29" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M20 48 q-11 -6 -16 2 q11 6 16 -2 Z" fill="#5FA833"/><path d="M20 40 q11 -6 16 2 q-11 6 -16 -2 Z" fill="#6CB83D"/><g fill="#FFC83D">${petals}</g><circle cx="20" cy="20" r="7.5" fill="#7B4B22"/><circle cx="20" cy="20" r="4.5" fill="#5C3617"/></svg>`;
+}
+function updSun(){
+  let rays='';
+  for(let i=0;i<8;i++) rays+=`<line x1="31" y1="5" x2="31" y2="13" transform="rotate(${i*45} 31 31)" stroke="#FFB300" stroke-width="3.5" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 62 62"><g class="rays">${rays}</g><circle cx="31" cy="31" r="13" fill="#FFC83D"/></svg>`;
+}
+
+// Ankündigungs-Pop-up
 function showUpdateBanner(){
-  const el=document.getElementById('update-banner');
-  if(el) el.style.display='block';
+  document.getElementById('upd-modal').classList.remove('garden');
+  document.getElementById('upd-sf-layer').innerHTML='';
+  document.getElementById('upd-iconwrap').innerHTML=UPD_SPARKLE;
+  const t=document.getElementById('upd-title');t.textContent='Neue Version verfügbar';t.classList.remove('done');
+  document.getElementById('upd-desc').textContent='Es ist eine aktualisierte Version der App bereit. Jetzt laden?';
+  const g=document.getElementById('upd-go');g.style.display='';g.disabled=false;g.innerHTML='Aktualisieren';
+  const l=document.getElementById('upd-later');if(l)l.style.display='';
+  document.getElementById('upd-backdrop').classList.add('show');
 }
+
 function dismissUpdate(){
-  const el=document.getElementById('update-banner');
-  if(el) el.style.display='none';
+  document.getElementById('upd-backdrop').classList.remove('show');
 }
+
 function applyUpdate(){
-  // Flag setzen, damit nach dem Reload der Erfolgs-Toast erscheint
   try{ sessionStorage.setItem('mr_just_updated','1'); }catch{}
-  // Button in Lade-Zustand versetzen
-  const btn=document.getElementById('update-btn');
-  if(btn){
-    btn.disabled=true;
-    btn.innerHTML='<span class="update-spinner"></span>Installiere…';
-  }
-  const banner=document.getElementById('update-banner');
-  if(banner) banner.classList.add('updating');
+  const g=document.getElementById('upd-go');
+  if(g){ g.disabled=true; g.innerHTML='<span class="upd-spinner"></span>Installiere…'; }
+  const l=document.getElementById('upd-later');if(l)l.style.display='none';
   if(waitingWorker){
     waitingWorker.postMessage({type:'SKIP_WAITING'});
-    // Fallback falls controllerchange nicht feuert
-    setTimeout(()=>window.location.reload(),1500);
+    setTimeout(()=>window.location.reload(),1800);
   }else{
-    setTimeout(()=>window.location.reload(),400);
+    setTimeout(()=>window.location.reload(),500);
   }
 }
 
+// Erfolgs-Pop-up nach dem Reload — Spring-Pop-Haken + Sonnenblumenfeld + Sonne
 function showUpdateSuccess(){
-  const toast=document.getElementById('update-toast');
-  if(!toast) return;
-  const v=document.getElementById('update-toast-version');
-  if(v) v.textContent=APP_VERSION;
-  toast.classList.add('show');
+  const bd=document.getElementById('upd-backdrop');
+  if(!bd) return;
+  document.getElementById('upd-iconwrap').innerHTML='<div class="upd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>';
+  const t=document.getElementById('upd-title');t.textContent='Aktualisiert!';t.classList.add('done');
+  document.getElementById('upd-desc').textContent='Du verwendest jetzt '+APP_VERSION+'.';
+  const g=document.getElementById('upd-go');if(g)g.style.display='none';
+  const l=document.getElementById('upd-later');if(l)l.style.display='none';
+  bd.classList.add('show');
+
+  // erst Pop-up einblenden, dann Beet ausfahren + Blumen wachsen
   setTimeout(()=>{
-    toast.classList.remove('show');
-    toast.classList.add('hide');
-    setTimeout(()=>{toast.classList.remove('hide');toast.style.display='none';},340);
-  },2600);
+    document.getElementById('upd-modal').classList.add('garden');
+    const layer=document.getElementById('upd-sf-layer');
+    layer.innerHTML='';
+    const su=document.createElement('div');su.className='upd-sun';su.innerHTML=updSun();
+    layer.appendChild(su);requestAnimationFrame(()=>su.classList.add('go'));
+    const n=9;
+    for(let i=0;i<n;i++){
+      const pos=(i+0.5)/n;
+      const scale=(0.78+Math.random()*0.32).toFixed(2);
+      const delay=(Math.random()*0.3).toFixed(2);
+      const d=document.createElement('div');
+      d.className='upd-sf grow';
+      d.style.left=(pos*100).toFixed(0)+'%';
+      d.style.bottom=(-10-Math.random()*8).toFixed(0)+'px';
+      d.style.setProperty('--s',scale);
+      d.style.setProperty('--d',delay+'s');
+      d.innerHTML=updSunflower();
+      layer.appendChild(d);
+      setTimeout(()=>{const sv=d.querySelector('svg');if(sv)sv.classList.add('sway');},delay*1000+900);
+    }
+  },380);
+
+  setTimeout(dismissUpdate,4200);
 }
 
 if('serviceWorker' in navigator){
