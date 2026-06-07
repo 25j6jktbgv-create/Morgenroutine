@@ -920,9 +920,9 @@ body.on-heute #pg-heute .phase-lbl {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--font); font-size: 13px; font-weight: 700;
   color: var(--green); background: var(--green-bg); border: none;
-  border-radius: 100px; padding: 7px 14px; cursor: pointer;
-  margin-bottom: 1.25rem; -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s;
+  border-radius: 100px; padding: 7px 14px; cursor: pointer; position: relative;
+  margin-bottom: 0; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s; flex-shrink: 0;
 }
 .meadow-btn:active { transform: scale(0.96); }
 
@@ -952,14 +952,29 @@ body.on-heute #pg-heute .phase-lbl {
 .mf-bar { height: 8px; border-radius: 100px; background: var(--fill); overflow: hidden; }
 .mf-bar i { display: block; height: 100%; background: var(--green); border-radius: 100px; transition: width 0.4s; }
 .mf-next { font-size: 12px; color: var(--t2); margin-top: 8px; }
+
+/* Neue-Blume-Effekt (erster Checkpoint) — SVG-Burst am Ort der heutigen Blume */
+#meadow-fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+#meadow-fx svg { width: 100%; height: 100%; display: block; }
+/* Aktionszeile: Streak links, Wiese-Button rechts */
+.heute-actions { display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 1.25rem; min-height: 28px; }
+.heute-actions .streak-chip { margin-bottom: 0; }
+/* iOS-artiges Badge mit Anzahl neuer Blumen */
+.meadow-badge { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 10px; background: #FF3B30; color: #fff; font-size: 12px; font-weight: 800; line-height: 20px;
+  text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.3); display: none; }
+.meadow-badge.show { display: block; animation: badgepop .32s cubic-bezier(.34,1.56,.64,1); }
+@keyframes badgepop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 </style>
 </head>
 <body>
 <h1 class="sr-only">Morgenroutine Tracker</h1>
 
-<!-- Blumenwiese (Hintergrund, nur Heute) -->
+<!-- Blumenwiese (Hintergrund) -->
 <div id="meadow-bg" aria-hidden="true"></div>
 <div id="meadow-veil" aria-hidden="true"></div>
+<div id="meadow-fx" aria-hidden="true"></div>
 
 <div class="upd-backdrop" id="upd-backdrop" role="dialog" aria-modal="true">
   <div class="upd-modal" id="upd-modal">
@@ -1005,9 +1020,10 @@ body.on-heute #pg-heute .phase-lbl {
     <div class="motivation" id="motivation"></div>
   </div>
 
-  <div id="streak-wrap" style="min-height:1px"></div>
-
-  <button class="meadow-btn" onclick="openMeadowView()" aria-label="Deine Blumenwiese ansehen">🌷 Wiese ansehen</button>
+  <div class="heute-actions">
+    <div id="streak-wrap" style="min-height:1px"></div>
+    <button class="meadow-btn" onclick="openMeadowView()" aria-label="Deine Blumenwiese ansehen">🌷 Wiese ansehen<span class="meadow-badge" id="meadow-badge"></span></button>
+  </div>
 
   <div class="heute-track-wrap">
     <div class="heute-track" id="heute-track">
@@ -1211,7 +1227,7 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v27';
+const APP_VERSION='v31';
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -1372,6 +1388,7 @@ function renderHeutePage(){
 
 function toggleStep(id){
   const k=dk(viewDate);const dd=dayData(k);
+  const wasActive=mDayActive(dd);
   if(id==='s6'){
     // s6 ist automatisch — abgeleitet aus den 3 Tagesziele-Inputs
     if(!goalsWritten(dd)){
@@ -1406,6 +1423,7 @@ function toggleStep(id){
     }
   }
   updateHeuteStats();
+  if(!wasActive && mDayActive(dd) && k===todayKey()) meadowCelebrate();
 }
 
 function toggleHour(){
@@ -2052,6 +2070,33 @@ function mMeadowFlower(x,by,s,color,growth){
     return `<line x1="${x.toFixed(1)}" y1="${by.toFixed(1)}" x2="${x.toFixed(1)}" y2="${(by-h).toFixed(1)}" stroke="#6FA85A" stroke-width="1.2"/>`+
            `<circle cx="${x.toFixed(1)}" cy="${(by-h).toFixed(1)}" r="${(3*s+1).toFixed(1)}" fill="${color}"/>`;}
   return `<g transform="translate(${x.toFixed(1)} ${by.toFixed(1)}) scale(${s.toFixed(2)})">${mFlower(0,0,60,growth,color)}</g>`;}
+// Verwelkte Blume (hängender Stiel, bräunlich) — markiert verlorene/verpasste Tage
+function mWiltedFlower(x,by,s,anim,delay){
+  const h=42*s, tx=(x+7*s), ty=(by-h*0.78);
+  const X=x.toFixed(1), BY=by.toFixed(1), TX=tx.toFixed(1), TY=ty.toFixed(1);
+  let inner=`<path d="M ${X} ${BY} Q ${(x+2*s).toFixed(1)} ${(by-h*0.55).toFixed(1)} ${TX} ${TY}" stroke="#8A7B55" stroke-width="${Math.max(1.2,h*0.045).toFixed(1)}" fill="none" stroke-linecap="round"/>`;
+  inner+=`<ellipse cx="${(tx-4*s).toFixed(1)}" cy="${(ty+3*s).toFixed(1)}" rx="${(4.2*s).toFixed(1)}" ry="${(2*s).toFixed(1)}" fill="#B49A6C" transform="rotate(45 ${(tx-4*s).toFixed(1)} ${(ty+3*s).toFixed(1)})"/>`;
+  inner+=`<ellipse cx="${(tx+3*s).toFixed(1)}" cy="${(ty+4*s).toFixed(1)}" rx="${(3.6*s).toFixed(1)}" ry="${(1.8*s).toFixed(1)}" fill="#A98E60" transform="rotate(-50 ${(tx+3*s).toFixed(1)} ${(ty+4*s).toFixed(1)})"/>`;
+  inner+=`<circle cx="${TX}" cy="${TY}" r="${(2.8*s).toFixed(1)}" fill="#9C7E58"/>`;
+  if(anim) return `<g opacity="0">${inner}<animate attributeName="opacity" values="0;0.85;0.85;0" keyTimes="0;0.25;0.7;1" dur="2.4s" begin="${delay.toFixed(2)}s" fill="freeze"/></g>`;
+  return `<g opacity="0.8">${inner}</g>`;}
+// Kräftiger Leucht-Ring zum Hervorheben einer neuen Blume — Dauer-Glow + 2 Pulse + Funken (~3,2 s)
+function mHighlightRing(cx,cy,delay){
+  const X=cx.toFixed(1), Y=cy.toFixed(1);
+  const pulse=(d2,col)=>`<circle cx="${X}" cy="${Y}" r="5" fill="none" stroke="${col}" stroke-width="4.5" opacity="0">`+
+    `<animate attributeName="r" values="5;31" dur="1.3s" begin="${d2.toFixed(2)}s" fill="freeze"/>`+
+    `<animate attributeName="opacity" values="0;0.95;0" dur="1.3s" begin="${d2.toFixed(2)}s" fill="freeze"/>`+
+    `<animate attributeName="stroke-width" values="4.5;0.5" dur="1.3s" begin="${d2.toFixed(2)}s" fill="freeze"/></circle>`;
+  let s=`<g>`;
+  // sanfter Dauer-Glow
+  s+=`<circle cx="${X}" cy="${Y}" r="19" fill="#FFE08A" opacity="0"><animate attributeName="opacity" values="0;0.5;0.5;0" keyTimes="0;0.12;0.78;1" dur="3.2s" begin="${delay.toFixed(2)}s" fill="freeze"/></circle>`;
+  // zwei expandierende Pulse
+  s+=pulse(delay,'#FFF4C8');
+  s+=pulse(delay+0.85,'#FFE08A');
+  // Funken
+  for(let i=0;i<5;i++){const a=i/5*6.283, sx=(cx+Math.cos(a)*15).toFixed(1), sy=(cy+Math.sin(a)*15).toFixed(1);
+    s+=`<circle cx="${sx}" cy="${sy}" r="2.6" fill="#FFFFFF" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="0.9s" begin="${(delay+0.15+i*0.07).toFixed(2)}s" fill="freeze"/></circle>`;}
+  return s+`</g>`;}
 function mTree(x,gy,grow,blossom,dark){
   const h=40+grow*82,tw=5+grow*6,cy=gy-h,R=24+grow*30;
   const trunk=dark?'#5E4630':'#8A6340';
@@ -2067,19 +2112,39 @@ function mTree(x,gy,grow,blossom,dark){
     s+=`<circle cx="${(x+Math.cos(a)*rr).toFixed(1)}" cy="${(cy+Math.sin(a)*rr*.9).toFixed(1)}" r="2" fill="${dot}"/>`;}}
   return s+`</g>`;}
 
-// Anzahl vollständig abgeschlossener Tage (= dauerhafte Blumen)
-function mCountDays(){let c=0;const days=data.days||{};
-  for(const k in days){const dd=days[k];
-    if(dd&&dd.checked&&Object.values(dd.checked).filter(Boolean).length===STEPS.length)c++;}
-  return c;}
-// Heutiger Fortschritt (für die live wachsende Blume vorne)
-function mTodayProgress(){const dd=data.days[todayKey()];
-  return dd?Object.values(dd.checked||{}).filter(Boolean).length:0;}
+// Zustand eines Tages: 0 leer · 1 teilweise · 2 voll abgeschlossen
+// Tag aktiv? = irgendeine Aktivität (Häkchen, Ziel-Text oder Brain-Dump)
+function mDayActive(dd){
+  if(!dd) return false;
+  if(Object.values(dd.checked||{}).some(Boolean)) return true;
+  if(dd.goals && dd.goals.some(g=>g&&g.t&&String(g.t).trim())) return true;
+  if(dd.dump && String(dd.dump).trim()) return true;
+  return false;
+}
+function mParseKey(k){const p=k.split('-'); return new Date(+p[0],(+p[1])-1,+p[2]);}
+// Wiesen-Zustand: net = blühende Blumen (aktiver Tag +1, verpasster Tag −1, laufende Bilanz ≥0).
+// currentGap = aktuelle Strähne verpasster Tage direkt vor heute (heute zählt erst, wenn aktiv).
+function mState(){
+  const days=data.days||{}, tk=todayKey();
+  const activeKeys=Object.keys(days).filter(k=>mDayActive(days[k])).sort();
+  const todayActive=mDayActive(days[tk]);
+  if(!activeKeys.length) return {net:0, active:0, missed:0, currentGap:0, todayActive};
+  const set=new Set(activeKeys), today=mParseKey(tk);
+  let net=0, missed=0, gap=0;
+  for(const d=mParseKey(activeKeys[0]); d<=today; d.setDate(d.getDate()+1)){
+    const k=dk(d);
+    if(set.has(k)){ net++; gap=0; }
+    else if(k!==tk){ if(net>0) net--; missed++; gap++; }
+  }
+  return {net, active:activeKeys.length, missed, currentGap:gap, todayActive};
+}
 
 const M_W=400, M_H=820;
 function mDark(){return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);}
-function mLandscape(d,t,full){
-  const horizon=full?150:300, bottom=M_H, warm=Math.min(1,d/60), lush=Math.min(1,d/14);
+function mLandscape(state, fullView, opts){
+  opts=opts||{};
+  const net=state.net, d=net;
+  const horizon=fullView?150:300, bottom=M_H, warm=Math.min(1,d/60), lush=Math.min(1,d/14);
   const dark=mDark();
   // Tag- bzw. Nacht-Palette
   const skyTop = dark?mLerp('#223149','#3A2C46',warm):mLerp('#BBD7EA','#FBDCA6',warm);
@@ -2096,14 +2161,29 @@ function mLandscape(d,t,full){
   }else{
     celestial=`<circle cx="70" cy="100" r="52" fill="#FFD56B" opacity=".2"/><circle cx="70" cy="100" r="30" fill="#FFD56B"/>`;
   }
-  const n=Math.min(d, full?110:88), rnd=mRng(42);
+  const cap=fullView?120:96, rnd=mRng(42);
+  const blooms=Math.min(net,cap);
+  // Welk-Marker: nach Verlust (Animation, beim Öffnen) oder bei laufender Durststrecke (statisch)
+  let W=0, wiltAnim=false;
+  if(opts.wiltCount>0){ W=Math.min(opts.wiltCount, fullView?24:12); wiltAnim=true; }
+  else if(state.currentGap>0 && !state.todayActive){ W=Math.min(state.currentGap, fullView?20:10); }
+  const hlCount=opts.hlCount||0;
+  const hlFromR = hlCount>0 ? blooms-hlCount : Infinity;
+  const hlStagger = Math.min(0.28, 1.4/Math.max(1,hlCount));
   let arr=[];
-  for(let i=0;i<n;i++){const u=rnd(), x=rnd()*M_W, y=horizon+10+u*(bottom-horizon-10), s=0.3+u*0.95;
-    arr.push({x,y,s,c:M_PETALS[Math.floor(rnd()*M_PETALS.length)]});}
-  arr.push({x:M_W*0.5,y:bottom-12,s:1.3,c:'#E8889B',today:true});  // heutige Blume
+  for(let r=0;r<blooms+W;r++){
+    const u=rnd(), x=rnd()*M_W, y=horizon+10+u*(bottom-horizon-10), s=0.3+u*0.95;
+    const c=M_PETALS[Math.floor(rnd()*M_PETALS.length)], wilt=r>=blooms;
+    if(!wilt && !fullView && r===blooms-1) _mTodayPos={x,y,s};  // neueste Blume = heutige
+    arr.push({x,y,s,c,wilt,r});
+  }
   arr.sort((a,b)=>a.y-b.y);
-  let f='';arr.forEach(o=>{const gr=o.today?Math.max(.14,t/STEPS.length):1, op=o.today?1:(0.5+o.s*0.5);
-    f+=`<g opacity="${op.toFixed(2)}">${mMeadowFlower(o.x,o.y,o.s,o.c,gr)}</g>`;});
+  let f='', rings='', nRing=0;
+  arr.forEach(o=>{
+    if(o.wilt){ f+=mWiltedFlower(o.x,o.y,o.s,wiltAnim, wiltAnim?(o.r-blooms)*0.12:0); return; }
+    f+=`<g opacity="${(0.5+o.s*0.5).toFixed(2)}">${mMeadowFlower(o.x,o.y,o.s,o.c,1)}</g>`;
+    if(o.r>=hlFromR) rings+=mHighlightRing(o.x, o.y-44*o.s, (nRing++)*hlStagger);
+  });
   const tree=d>=30?mTree(M_W*0.78,Math.min(bottom-180,horizon+170),Math.min(1,(d-30)/70),d>=100,dark):'';
   const butter=d>=60?`<text x="${M_W*0.22}" y="${horizon+40}" font-size="26">🦋</text><text x="${M_W*0.6}" y="${horizon+8}" font-size="20">🦋</text>`:'';
   return `<svg viewBox="0 0 ${M_W} ${M_H}" preserveAspectRatio="xMidYMax slice">
@@ -2116,7 +2196,7 @@ function mLandscape(d,t,full){
     <rect width="${M_W}" height="${M_H}" fill="url(#mSky)"/>
     ${celestial}
     <path d="M0 ${horizon} Q${M_W/2} ${horizon-34} ${M_W} ${horizon} L${M_W} ${M_H} L0 ${M_H} Z" fill="url(#mGrd)"/>
-    ${tree}<g>${f}</g>${butter}
+    ${tree}<g>${f}</g>${butter}${rings}
   </svg>`;
 }
 
@@ -2126,34 +2206,82 @@ function mGreeting(){const h=new Date().getHours();
   if(h>=17&&h<22) return['Guten Abend','🌆'];
   return['Gute Nacht','🌙'];}
 
-let _mSig='';
+let _mSig='', _mTodayPos=null;
+// Badge mit Anzahl neuer Blumen seit dem letzten Ansehen
+function mUpdateBadge(state){
+  const b=document.getElementById('meadow-badge'); if(!b) return;
+  const seen=ld('mr_meadow_seen',null);
+  const n = seen===null ? 0 : Math.max(0, state.net - seen);
+  if(n>0){ b.textContent = n>99?'99+':String(n); b.classList.add('show'); }
+  else { b.classList.remove('show'); }
+}
 function renderMeadow(){
   const gEl=document.getElementById('greeting');
   if(gEl){const g=mGreeting();gEl.textContent=g[0]+' '+g[1];}
-  const d=mCountDays(), t=mTodayProgress();
-  const sig=d+'|'+t;
+  const state=mState();
+  mUpdateBadge(state);
+  const sig=state.net+'|'+state.currentGap+'|'+(state.todayActive?1:0);
   if(sig!==_mSig){
     _mSig=sig;
     const bg=document.getElementById('meadow-bg');
-    if(bg)bg.innerHTML=mLandscape(d,t,false);
+    if(bg)bg.innerHTML=mLandscape(state,false,null);
   }
   const mf=document.getElementById('meadow-full');
-  if(mf&&mf.classList.contains('show'))fillMeadowFull(d,t);
+  if(mf&&mf.classList.contains('show'))fillMeadowFull(state,null);
 }
 
-function fillMeadowFull(d,t){
-  const bg=document.getElementById('mf-bg');if(bg)bg.innerHTML=mLandscape(d,t,true);
-  const ti=mTier(d);
+function fillMeadowFull(state,opts){
+  const bg=document.getElementById('mf-bg');if(bg)bg.innerHTML=mLandscape(state,true,opts);
+  const net=state.net, ti=mTier(net);
   document.getElementById('mf-stage').textContent=`${ti.e} Stufe ${ti.i+1} · ${ti.name}`;
-  document.getElementById('mf-count').textContent=`${d} ${d===1?'Blume':'Blumen'} gewachsen`;
+  let cnt=`${net} ${net===1?'Blume':'Blumen'}`;
+  if(opts && opts.hlCount>0)   cnt+=` · +${opts.hlCount} neu ✨`;
+  if(opts && opts.wiltCount>0) cnt+=` · ${opts.wiltCount} verwelkt 🥀`;
+  document.getElementById('mf-count').textContent=cnt;
   document.getElementById('mf-bar').style.width=(ti.prog*100)+'%';
-  document.getElementById('mf-next').textContent=ti.next
-    ?`Noch ${ti.next.m-d} ${ti.next.m-d===1?'Tag':'Tage'} bis „${ti.next.n}" ${ti.next.e}`
+  let nextTxt;
+  if(state.currentGap>0 && !state.todayActive)
+    nextTxt=`🥀 ${state.currentGap} ${state.currentGap===1?'Tag':'Tage'} ohne Schritte — heute weiterpflegen!`;
+  else nextTxt = ti.next
+    ?`Noch ${ti.next.m-net} ${ti.next.m-net===1?'Tag':'Tage'} bis „${ti.next.n}" ${ti.next.e}`
     :'Höchste Stufe erreicht 🌳';
+  document.getElementById('mf-next').textContent=nextTxt;
 }
-function openMeadowView(){fillMeadowFull(mCountDays(),mTodayProgress());document.getElementById('meadow-full').classList.add('show');}
+function openMeadowView(){
+  const state=mState();
+  const seen=ld('mr_meadow_seen',null);
+  let opts=null;
+  if(seen!==null){
+    if(state.net>seen)      opts={hlCount: state.net-seen};
+    else if(state.net<seen) opts={wiltCount: seen-state.net};
+  }
+  sv('mr_meadow_seen', state.net);
+  mUpdateBadge(state);
+  fillMeadowFull(state,opts);
+  document.getElementById('meadow-full').classList.add('show');
+}
+// Neue-Blume-Feier am Ort der heutigen Blume (SVG-Burst, ~3,5 s) — Position über _mTodayPos
+function meadowCelebrate(){
+  const fx=document.getElementById('meadow-fx'); if(!fx || !_mTodayPos) return;
+  const x=_mTodayPos.x, y=_mTodayPos.y, X=x.toFixed(1), Yc=(y-20).toFixed(1);
+  const pulse=(d2,col)=>`<circle cx="${X}" cy="${Yc}" r="5" fill="none" stroke="${col}" stroke-width="4.5" opacity="0">`+
+    `<animate attributeName="r" values="5;36" dur="1.4s" begin="${d2}s" fill="freeze"/>`+
+    `<animate attributeName="opacity" values="0;0.95;0" dur="1.4s" begin="${d2}s" fill="freeze"/>`+
+    `<animate attributeName="stroke-width" values="5;0.4" dur="1.4s" begin="${d2}s" fill="freeze"/></circle>`;
+  let g='<g>';
+  g+=`<circle cx="${X}" cy="${Yc}" r="28" fill="#FFE08A" opacity="0"><animate attributeName="opacity" values="0;0.5;0.5;0" keyTimes="0;0.12;0.72;1" dur="3.4s" begin="0s" fill="freeze"/></circle>`;
+  g+=pulse('0','#FFF4C8'); g+=pulse('0.9','#FFE08A'); g+=pulse('1.8','#FFF4C8');
+  const cols=['#E8889B','#F6C667','#C9A7E8','#9BC6F0','#B6D88A'];
+  for(let i=0;i<10;i++){const px=(x+(Math.random()-0.5)*42).toFixed(1), c=cols[i%cols.length],
+    dl=(Math.random()*0.6).toFixed(2), rise=(40+Math.random()*42).toFixed(0), r=(2.4+Math.random()*2).toFixed(1);
+    g+=`<circle cx="${px}" cy="${y.toFixed(1)}" r="${r}" fill="${c}" opacity="0"><animate attributeName="cy" values="${y.toFixed(1)};${(y-rise).toFixed(1)}" dur="2.5s" begin="${dl}s" fill="freeze"/><animate attributeName="opacity" values="0;0.9;0" dur="2.5s" begin="${dl}s" fill="freeze"/></circle>`;}
+  g+='</g>';
+  fx.innerHTML=`<svg viewBox="0 0 ${M_W} ${M_H}" preserveAspectRatio="xMidYMax slice">${g}</svg>`;
+  setTimeout(()=>{fx.innerHTML='';},4200);
+}
 function closeMeadowView(){document.getElementById('meadow-full').classList.remove('show');}
 
+if(ld('mr_meadow_seen',null)===null) sv('mr_meadow_seen', mState().net);
 document.body.classList.add('on-heute');
 renderHeutePage();
 initWkPicker();
