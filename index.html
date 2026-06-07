@@ -835,7 +835,13 @@ input[type="week"] {
 }
 .upd-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; color: var(--t1); }
 .upd-title.done { color: var(--green); }
-.upd-desc { font-size: 14px; color: var(--t2); margin-bottom: 20px; }
+.upd-desc { font-size: 14px; color: var(--t2); margin-bottom: 16px; }
+.upd-changes { list-style: none; text-align: left; margin: 0 0 18px; padding: 12px 14px;
+  background: var(--surface2); border-radius: var(--r-md); max-height: 42vh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; }
+.upd-changes:empty { display: none; }
+.upd-changes li { font-size: 13px; color: var(--t1); line-height: 1.45; padding: 4px 0; }
+.upd-changes li + li { border-top: 0.5px solid var(--sep); }
 .upd-go {
   width: 100%; padding: 13px;
   background: var(--blue); color: #fff;
@@ -927,8 +933,24 @@ body.on-heute #pg-heute .phase-lbl {
 .meadow-btn:active { transform: scale(0.96); }
 
 /* Wiesen-Vollansicht */
-#meadow-full { position: fixed; inset: 0; z-index: 200; display: none; }
+#meadow-full { position: fixed; inset: 0; z-index: 200; display: none; touch-action: pan-y; }
 #meadow-full.show { display: block; animation: mfin 0.34s cubic-bezier(0.2,0.8,0.2,1); }
+#meadow-full.dragging { box-shadow: -12px 0 30px rgba(0,0,0,.22); will-change: transform; }
+/* Hinweis-Pille für die Wisch-Geste (nur die ersten Aufrufe) */
+.mf-hint { position: absolute; top: 50%; left: 8px; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 7px 10px 7px 6px;
+  background: rgba(var(--bg-rgb),.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border-radius: 0 14px 14px 0; color: var(--t2); font-size: 11px; font-weight: 600;
+  box-shadow: 0 1px 5px rgba(0,0,0,.12); opacity: 0; pointer-events: none; }
+.mf-hint.on { animation: mfhint 3.2s ease-out forwards; }
+.mf-hint svg { width: 15px; height: 15px; stroke: var(--t2); fill: none; stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round; }
+@keyframes mfhint {
+  0% { opacity: 0; transform: translate(-6px,-50%); }
+  12% { opacity: .9; transform: translate(0,-50%); }
+  70% { opacity: .9; transform: translate(0,-50%); }
+  100% { opacity: 0; transform: translate(0,-50%); }
+}
 @keyframes mfin { from { transform: translateY(100%); } to { transform: translateY(0); } }
 #mf-bg { position: absolute; inset: 0; }
 #mf-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -985,6 +1007,7 @@ body.on-heute #pg-heute .phase-lbl {
       </div>
       <div class="upd-title" id="upd-title">Neue Version verfügbar</div>
       <div class="upd-desc" id="upd-desc">Es ist eine aktualisierte Version der App bereit. Jetzt laden?</div>
+      <ul class="upd-changes" id="upd-changes"></ul>
       <button class="upd-go" id="upd-go" onclick="applyUpdate()">Aktualisieren</button>
       <button class="upd-later" id="upd-later" onclick="dismissUpdate()">Später</button>
     </div>
@@ -1206,6 +1229,7 @@ body.on-heute #pg-heute .phase-lbl {
       <div class="mf-title">Deine Wiese</div>
       <button class="mf-close" onclick="closeMeadowView()" aria-label="Schließen">✕</button>
     </div>
+    <div class="mf-hint" id="mf-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>wischen</div>
     <div class="mf-card">
       <div class="mf-stage" id="mf-stage"></div>
       <div class="mf-count" id="mf-count"></div>
@@ -1227,7 +1251,15 @@ const STEPS=[
   {id:'s8',name:'Bewegung – 8 bis 10 Min',     time:'08:05',phase:'Energie'},
 ];
 const MOODS=['Sehr müde','Müde','Ok','Gut','Sehr gut'];
-const APP_VERSION='v31';
+const APP_VERSION='v33';
+// Changelog für das „Aktualisiert!"-Popup — bei jedem Release anpassen
+const CHANGES=[
+  '🌷 Neue Blumenwiese: Für jeden Tag mit erledigten Schritten wächst eine Blume.',
+  '🌳 Jahreszeiten & Meilensteine — tippe „🌷 Wiese ansehen" für die ganze Wiese.',
+  '🥀 Verpasste Tage lassen Blumen welken — also dranbleiben!',
+  '☀️ Begrüßung passt sich der Tageszeit an.',
+  '🐛 Kalender-Datum (Zeitzonen-Fehler) korrigiert.'
+];
 
 function ld(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -2217,7 +2249,7 @@ function mUpdateBadge(state){
 }
 function renderMeadow(){
   const gEl=document.getElementById('greeting');
-  if(gEl){const g=mGreeting();gEl.textContent=g[0]+' '+g[1];}
+  if(gEl){const g=mGreeting();gEl.textContent='Hey L, '+g[0].charAt(0).toLowerCase()+g[0].slice(1)+' '+g[1];}
   const state=mState();
   mUpdateBadge(state);
   const sig=state.net+'|'+state.currentGap+'|'+(state.todayActive?1:0);
@@ -2259,6 +2291,11 @@ function openMeadowView(){
   mUpdateBadge(state);
   fillMeadowFull(state,opts);
   document.getElementById('meadow-full').classList.add('show');
+  // Wisch-Geste-Hinweis bei den ersten Aufrufen kurz einblenden
+  const hc=ld('mr_meadow_hint',0);
+  if(hc<3){ sv('mr_meadow_hint', hc+1);
+    const h=document.getElementById('mf-hint');
+    if(h){ h.classList.remove('on'); void h.offsetWidth; h.classList.add('on'); } }
 }
 // Neue-Blume-Feier am Ort der heutigen Blume (SVG-Burst, ~3,5 s) — Position über _mTodayPos
 function meadowCelebrate(){
@@ -2280,6 +2317,54 @@ function meadowCelebrate(){
   setTimeout(()=>{fx.innerHTML='';},4200);
 }
 function closeMeadowView(){document.getElementById('meadow-full').classList.remove('show');}
+
+// Wiesen-Vollansicht per Wisch vom linken Bildschirmrand nach rechts schließen (iOS-Back-Geste)
+(function initMeadowSwipe(){
+  const mf=document.getElementById('meadow-full'); if(!mf) return;
+  let active=false, decided=false, horiz=false, x0=0, y0=0, dx=0, t0=0;
+  const EDGE=28;
+  function clear(){ mf.classList.remove('dragging'); mf.style.transition=''; mf.style.transform=''; }
+  mf.addEventListener('touchstart',e=>{
+    if(!mf.classList.contains('show') || e.touches.length>1) return;
+    const t=e.touches[0];
+    if(t.clientX>EDGE) return;                 // nur vom linken Rand
+    active=true; decided=false; horiz=false; x0=t.clientX; y0=t.clientY; dx=0; t0=e.timeStamp;
+    mf.style.transition='none';
+  },{passive:true});
+  mf.addEventListener('touchmove',e=>{
+    if(!active) return;
+    const t=e.touches[0]; dx=t.clientX-x0; const dy=t.clientY-y0;
+    if(!decided){
+      if(Math.abs(dx)<6 && Math.abs(dy)<6) return;
+      decided=true; horiz=Math.abs(dx)>Math.abs(dy);
+      if(!horiz){ active=false; clear(); return; }
+      mf.classList.add('dragging');
+    }
+    if(horiz){
+      mf.style.transform='translateX('+Math.max(0,dx).toFixed(1)+'px)';
+      if(e.cancelable) e.preventDefault();
+    }
+  },{passive:false});
+  function end(e){
+    if(!active) return; active=false;
+    if(!horiz){ clear(); return; }
+    const w=window.innerWidth, dt=Math.max(1,e.timeStamp-t0), vel=dx/dt;
+    const close = dx>w*0.33 || (dx>50 && vel>0.4);   // genug Weg oder schneller Flick
+    mf.style.transition='transform .3s cubic-bezier(.2,.8,.2,1)';
+    if(close){
+      mf.style.transform='translateX('+w+'px)';
+      let done=false;
+      const fin=()=>{ if(done)return; done=true; mf.removeEventListener('transitionend',fin); closeMeadowView(); clear(); };
+      mf.addEventListener('transitionend',fin); setTimeout(fin,380);
+    }else{
+      mf.style.transform='translateX(0)';
+      const back=()=>{ mf.removeEventListener('transitionend',back); clear(); };
+      mf.addEventListener('transitionend',back); setTimeout(back,380);
+    }
+  }
+  mf.addEventListener('touchend',end);
+  mf.addEventListener('touchcancel',end);
+})();
 
 if(ld('mr_meadow_seen',null)===null) sv('mr_meadow_seen', mState().net);
 document.body.classList.add('on-heute');
@@ -2324,8 +2409,9 @@ function showUpdateBanner(){
   document.getElementById('upd-sf-layer').innerHTML='';
   document.getElementById('upd-iconwrap').innerHTML=UPD_SPARKLE;
   const t=document.getElementById('upd-title');t.textContent='Neue Version verfügbar';t.classList.remove('done');
-  document.getElementById('upd-desc').textContent='Es ist eine aktualisierte Version der App bereit. Jetzt laden?';
-  const g=document.getElementById('upd-go');g.style.display='';g.disabled=false;g.innerHTML='Aktualisieren';
+  document.getElementById('upd-desc').textContent='Hey L, es ist eine aktualisierte Version der App bereit. Jetzt laden?';
+  const uc=document.getElementById('upd-changes');if(uc)uc.innerHTML='';
+  const g=document.getElementById('upd-go');g.style.display='';g.disabled=false;g.innerHTML='Aktualisieren';g.onclick=applyUpdate;
   const l=document.getElementById('upd-later');if(l)l.style.display='';
   document.getElementById('upd-backdrop').classList.add('show');
 }
@@ -2353,8 +2439,12 @@ function showUpdateSuccess(){
   if(!bd) return;
   document.getElementById('upd-iconwrap').innerHTML='<div class="upd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>';
   const t=document.getElementById('upd-title');t.textContent='Aktualisiert!';t.classList.add('done');
-  document.getElementById('upd-desc').textContent='Du verwendest jetzt '+APP_VERSION+'.';
-  const g=document.getElementById('upd-go');if(g)g.style.display='none';
+  document.getElementById('upd-desc').textContent='Hey L, du verwendest jetzt '+APP_VERSION+'. Das ist neu:';
+  const uc=document.getElementById('upd-changes');
+  if(uc) uc.innerHTML=CHANGES.map(c=>`<li>${c}</li>`).join('');
+  // „Los geht's"-Button zum bewussten Schließen (kein Auto-Ausblenden mehr)
+  const g=document.getElementById('upd-go');
+  if(g){ g.style.display=''; g.disabled=false; g.innerHTML="Los geht's 🌱"; g.onclick=dismissUpdate; }
   const l=document.getElementById('upd-later');if(l)l.style.display='none';
   bd.classList.add('show');
 
@@ -2381,8 +2471,7 @@ function showUpdateSuccess(){
       setTimeout(()=>{const sv=d.querySelector('svg');if(sv)sv.classList.add('sway');},delay*1000+900);
     }
   },380);
-
-  setTimeout(dismissUpdate,4200);
+  // Kein Auto-Ausblenden mehr — bleibt offen bis „Los geht's"
 }
 
 if('serviceWorker' in navigator){
